@@ -4,3 +4,6 @@
 [submodule "submodule/foolbox-master"]
 	path = submodule/foolbox-master
 	url = git@github.com:PeterouZh/foolbox.git
+[submodule "EXPERIMENTS"]
+	path = EXPERIMENTS
+	url = https://0.0.0.0:8443/PeterouZh/pt.darts.git
