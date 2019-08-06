@@ -80,8 +80,9 @@ class SearchConfig(BaseConfig):
 class AugmentConfig(BaseConfig):
     def build_parser(self):
         parser = get_parser("Augment config")
-        parser.add_argument('--name', required=True)
-        parser.add_argument('--dataset', required=True, help='CIFAR10 / MNIST / FashionMNIST')
+        parser.add_argument('--name', required=False, default='cifar10')
+        parser.add_argument('--dataset', required=False, help='CIFAR10 / MNIST / FashionMNIST',
+                            default='cifar10')
         parser.add_argument('--batch_size', type=int, default=96, help='batch size')
         parser.add_argument('--lr', type=float, default=0.025, help='lr for weights')
         parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -100,7 +101,19 @@ class AugmentConfig(BaseConfig):
         parser.add_argument('--cutout_length', type=int, default=16, help='cutout length')
         parser.add_argument('--drop_path_prob', type=float, default=0.2, help='drop path prob')
 
-        parser.add_argument('--genotype', required=True, help='Cell genotype')
+        parser.add_argument('--genotype', required=False, help='Cell genotype',
+                            default='''Genotype(
+                normal=[[('sep_conv_3x3', 0), ('dil_conv_5x5', 1)],
+                        [('skip_connect', 0), ('dil_conv_3x3', 2)],
+                        [('sep_conv_3x3', 1), ('skip_connect', 0)],
+                        [('sep_conv_3x3', 1), ('skip_connect', 0)]],
+                normal_concat=range(2, 6),
+                reduce=[[('max_pool_3x3', 0), ('max_pool_3x3', 1)],
+                        [('max_pool_3x3', 0), ('skip_connect', 2)],
+                        [('skip_connect', 3), ('max_pool_3x3', 0)],
+                        [('skip_connect', 2), ('max_pool_3x3', 0)]],
+                reduce_concat=range(2, 6)
+                )''')
 
         return parser
 

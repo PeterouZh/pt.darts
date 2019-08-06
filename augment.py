@@ -7,21 +7,10 @@ from tensorboardX import SummaryWriter
 from config import AugmentConfig
 import utils
 from models.augment_cnn import AugmentCNN
+import genotypes as gt
 
 
-config = AugmentConfig()
-
-device = torch.device("cuda")
-
-# tensorboard
-writer = SummaryWriter(log_dir=os.path.join(config.path, "tb"))
-writer.add_text('config', config.as_markdown(), 0)
-
-logger = utils.get_logger(os.path.join(config.path, "{}.log".format(config.name)))
-config.print_params(logger.info)
-
-
-def main():
+def main(config, logger, device, myargs):
     logger.info("Logger is set - training start")
 
     # set default gpu device id
@@ -72,16 +61,19 @@ def main():
         model.module.drop_path_prob(drop_prob)
 
         # training
-        train(train_loader, model, optimizer, criterion, epoch)
+        train(train_loader, model, optimizer, criterion, epoch,
+              device=device, config=config, myargs=myargs)
 
         # validation
         cur_step = (epoch+1) * len(train_loader)
-        top1 = validate(valid_loader, model, criterion, epoch, cur_step)
+        top1 = validate(valid_loader, model, criterion, epoch, cur_step,
+                        device=device, config=config, myargs=myargs)
 
         # save
         if best_top1 < top1:
             best_top1 = top1
             is_best = True
+            best_epoch = epoch + 1
         else:
             is_best = False
         utils.save_checkpoint(model, config.path, is_best)
@@ -89,9 +81,13 @@ def main():
         print("")
 
     logger.info("Final best Prec@1 = {:.4%}".format(best_top1))
+    print('Best epoch: %d'%best_epoch)
 
 
-def train(train_loader, model, optimizer, criterion, epoch):
+def train(train_loader, model, optimizer, criterion, epoch,
+          device, config, myargs):
+    logger = myargs.logger
+    writer = myargs.writer
     top1 = utils.AverageMeter()
     top5 = utils.AverageMeter()
     losses = utils.AverageMeter()
@@ -134,10 +130,15 @@ def train(train_loader, model, optimizer, criterion, epoch):
         writer.add_scalar('train/top5', prec5.item(), cur_step)
         cur_step += 1
 
-    logger.info("Train: [{:3d}/{}] Final Prec@1 {:.4%}".format(epoch+1, config.epochs, top1.avg))
+    logger.info("Train: [{:3d}/{}] Final Prec@1 {:.4%}".format(
+        epoch+1, config.epochs, top1.avg))
+    myargs.textlogger.log(epoch + 1, train_acc=top1.avg)
 
 
-def validate(valid_loader, model, criterion, epoch, cur_step):
+def validate(valid_loader, model, criterion, epoch, cur_step,
+             device, config, myargs):
+    logger = myargs.logger
+    writer = myargs.writer
     top1 = utils.AverageMeter()
     top5 = utils.AverageMeter()
     losses = utils.AverageMeter()
@@ -168,10 +169,49 @@ def validate(valid_loader, model, criterion, epoch, cur_step):
     writer.add_scalar('val/top1', top1.avg, cur_step)
     writer.add_scalar('val/top5', top5.avg, cur_step)
 
-    logger.info("Valid: [{:3d}/{}] Final Prec@1 {:.4%}".format(epoch+1, config.epochs, top1.avg))
+    logger.info("Valid: [{:3d}/{}] Final Prec@1 {:.4%}".format(
+        epoch+1, config.epochs, top1.avg))
+    myargs.textlogger.log(epoch + 1, test_acc=top1.avg)
 
     return top1.avg
 
 
+def run(args, myargs):
+    my_config = getattr(myargs.config, args.command)
+    config = AugmentConfig()
+    for k, v in args.items():
+        assert not hasattr(config, k)
+        setattr(config, k, v)
+
+    for k, v in my_config.items():
+        if not hasattr(config, k):
+            print('* config does not have %s'%k)
+        setattr(config, k, v)
+    device = torch.device("cuda")
+    writer = myargs.writer
+    writer.add_text('all_config', config.as_markdown(), 0)
+    logger = myargs.logger
+    config.print_params(logger.info)
+
+    config.genotype = gt.from_str(config.genotype)
+    config.data_path = os.path.expanduser(config.data_path)
+    config.plot_path = os.path.join(args.outdir, 'plot')
+    config.path = args.outdir
+    main(config=config, logger=logger, device=device,
+         myargs=myargs)
+
+
 if __name__ == "__main__":
+    # config = AugmentConfig()
+    #
+    # device = torch.device("cuda")
+    #
+    # # tensorboard
+    # writer = SummaryWriter(log_dir=os.path.join(config.path, "tb"))
+    # writer.add_text('config', config.as_markdown(), 0)
+    #
+    # logger = utils.get_logger(
+    #     os.path.join(config.path, "{}.log".format(config.name)))
+    # config.print_params(logger.info)
+
     main()
