@@ -1,0 +1,4 @@
+cnn_cifar10_train_search:
+  name: cifar10
+  dataset: cifar10
+  data_path: '~/.keras/cifar10'

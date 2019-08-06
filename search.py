@@ -11,19 +11,7 @@ from architect import Architect
 from visualize import plot
 
 
-config = SearchConfig()
-
-device = torch.device("cuda")
-
-# tensorboard
-writer = SummaryWriter(log_dir=os.path.join(config.path, "tb"))
-writer.add_text('config', config.as_markdown(), 0)
-
-logger = utils.get_logger(os.path.join(config.path, "{}.log".format(config.name)))
-config.print_params(logger.info)
-
-
-def main():
+def main(config, logger, device, myargs):
     logger.info("Logger is set - training start")
 
     # set default gpu device id
@@ -81,27 +69,32 @@ def main():
         model.print_alphas(logger)
 
         # training
-        train(train_loader, valid_loader, model, architect, w_optim, alpha_optim, lr, epoch)
+        train(train_loader, valid_loader, model, architect,
+              w_optim, alpha_optim, lr, epoch,
+              device=device, config=config, myargs=myargs)
 
         # validation
         cur_step = (epoch+1) * len(train_loader)
-        top1 = validate(valid_loader, model, epoch, cur_step)
+        top1 = validate(valid_loader, model, epoch, cur_step,
+                        device=device, config=config, myargs=myargs)
 
         # log
         # genotype
         genotype = model.genotype()
-        logger.info("genotype = {}".format(genotype))
+        print("genotype = {}".format(genotype))
+        myargs.textlogger.logstr(epoch + 1, genotype=genotype)
 
         # genotype as a image
-        plot_path = os.path.join(config.plot_path, "EP{:02d}".format(epoch+1))
-        caption = "Epoch {}".format(epoch+1)
-        plot(genotype.normal, plot_path + "-normal", caption)
-        plot(genotype.reduce, plot_path + "-reduce", caption)
+        # plot_path = os.path.join(config.plot_path, "EP{:02d}".format(epoch+1))
+        # caption = "Epoch {}".format(epoch+1)
+        # plot(genotype.normal, plot_path + "-normal", caption)
+        # plot(genotype.reduce, plot_path + "-reduce", caption)
 
         # save
         if best_top1 < top1:
             best_top1 = top1
             best_genotype = genotype
+            best_epoch = epoch + 1
             is_best = True
         else:
             is_best = False
@@ -110,9 +103,14 @@ def main():
 
     logger.info("Final best Prec@1 = {:.4%}".format(best_top1))
     logger.info("Best Genotype = {}".format(best_genotype))
+    print(best_genotype)
+    print('Best epoch: %d'%best_epoch)
 
 
-def train(train_loader, valid_loader, model, architect, w_optim, alpha_optim, lr, epoch):
+def train(train_loader, valid_loader, model, architect,
+          w_optim, alpha_optim, lr, epoch, device, config, myargs):
+    writer = myargs.writer
+    logger = myargs.logger
     top1 = utils.AverageMeter()
     top5 = utils.AverageMeter()
     losses = utils.AverageMeter()
@@ -158,10 +156,15 @@ def train(train_loader, valid_loader, model, architect, w_optim, alpha_optim, lr
         writer.add_scalar('train/top5', prec5.item(), cur_step)
         cur_step += 1
 
-    logger.info("Train: [{:2d}/{}] Final Prec@1 {:.4%}".format(epoch+1, config.epochs, top1.avg))
+    logger.info("Train: [{:2d}/{}] Final Prec@1 {:.4%}".format(
+        epoch+1, config.epochs, top1.avg))
+    myargs.textlogger.log(epoch + 1, train_acc=top1.avg)
 
 
-def validate(valid_loader, model, epoch, cur_step):
+def validate(valid_loader, model, epoch, cur_step,
+             device, config, myargs):
+    writer = myargs.writer
+    logger = myargs.logger
     top1 = utils.AverageMeter()
     top5 = utils.AverageMeter()
     losses = utils.AverageMeter()
@@ -192,10 +195,46 @@ def validate(valid_loader, model, epoch, cur_step):
     writer.add_scalar('val/top1', top1.avg, cur_step)
     writer.add_scalar('val/top5', top5.avg, cur_step)
 
-    logger.info("Valid: [{:2d}/{}] Final Prec@1 {:.4%}".format(epoch+1, config.epochs, top1.avg))
+    logger.info("Valid: [{:2d}/{}] Final Prec@1 {:.4%}".format(
+        epoch+1, config.epochs, top1.avg))
+    myargs.textlogger.log(epoch + 1, val_acc=top1.avg)
 
     return top1.avg
 
 
+def run(args, myargs):
+    my_config = getattr(myargs.config, args.command)
+    config = SearchConfig()
+    for k, v in args.items():
+        assert not hasattr(config, k)
+        setattr(config, k, v)
+
+    for k, v in my_config.items():
+        if not hasattr(config, k):
+            print('* config does not have %s'%k)
+        setattr(config, k, v)
+    device = torch.device("cuda")
+    writer = myargs.writer
+    writer.add_text('all_config', config.as_markdown(), 0)
+    logger = myargs.logger
+    config.print_params(logger.info)
+
+    config.data_path = os.path.expanduser(config.data_path)
+    config.plot_path = os.path.join(args.outdir, 'plot')
+    config.path = args.outdir
+    main(config=config, logger=logger, device=device,
+         myargs=myargs)
+
 if __name__ == "__main__":
-    main()
+    config = SearchConfig()
+
+    device = torch.device("cuda")
+
+    # tensorboard
+    writer = SummaryWriter(log_dir=os.path.join(config.path, "tb"))
+    writer.add_text('config', config.as_markdown(), 0)
+
+    logger = utils.get_logger(
+        os.path.join(config.path, "{}.log".format(config.name)))
+    config.print_params(logger.info)
+    main(config=config, logger=logger, device=device)
