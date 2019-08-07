@@ -191,7 +191,7 @@ def run(args, myargs):
     writer = myargs.writer
     writer.add_text('all_config', config.as_markdown(), 0)
     logger = myargs.logger
-    config.print_params(logger.info)
+    config.print_params(logger.info_msg)
 
     config.genotype = gt.from_str(config.genotype)
     config.data_path = os.path.expanduser(config.data_path)
