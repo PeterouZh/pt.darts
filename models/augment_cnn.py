@@ -99,3 +99,13 @@ class AugmentCNN(nn.Module):
         for module in self.modules():
             if isinstance(module, ops.DropPath_):
                 module.p = p
+
+
+class AugmentCNNOneOutput(nn.Module):
+    def __init__(self, model):
+        super(AugmentCNNOneOutput, self).__init__()
+        self.model = model
+
+    def forward(self, *input):
+        logits, aux_logits = self.model(*input)
+        return logits
