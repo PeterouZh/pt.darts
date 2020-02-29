@@ -65,9 +65,9 @@ class SearchConfig(BaseConfig):
 
         return parser
 
-    def __init__(self):
+    def __init__(self, args_list):
         parser = self.build_parser()
-        args = parser.parse_args()
+        args = parser.parse_args(args=args_list)
         super().__init__(**vars(args))
 
         self.data_path = './data/'
