@@ -96,7 +96,7 @@ def main(config, writer, logger, device, myargs):
         # genotype
         genotype = model.genotype()
         logger.info("genotype = {}".format(genotype))
-        myargs.textlogger.logstr(iter=epoch+1, genotype=str(genotype))
+        myargs.textlogger.logstr(itr=epoch+1, genotype=str(genotype))
 
         # genotype as a image
         plot_path = os.path.join(config.plot_path, "EP{:02d}".format(epoch+1))
