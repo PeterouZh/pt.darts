@@ -66,6 +66,7 @@ def plot(genotype, cfg, **kwargs):
         g.attr(label=caption, overlap='false', fontsize='20', fontname='times')
 
     g.render(file_path, view=False)
+    pass
 
 
 def main(args, myargs):
